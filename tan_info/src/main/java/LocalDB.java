@@ -21,8 +21,8 @@ public class LocalDB {
         try {
             Class.forName("org.postgresql.Driver");
             String user = "postgres";
-            String pwd = "admin";
-            String address = "jdbc:postgresql://localhost/gfts";
+            String pwd = "";
+            String address = "jdbc:postgresql://localhost/TANgft";
 
             this.connect = DriverManager.getConnection(address, user, pwd);
 
