@@ -8,8 +8,8 @@ public class LocalDB {
     /**
      * Connect to database containing datas of the chosen mean of transportation
      */
-    public LocalDB(){
-        this.connectToDB();
+    public LocalDB(String passwd, String username, String dbName){
+        this.connectToDB(passwd, username, dbName);
     }
 
 
@@ -17,14 +17,11 @@ public class LocalDB {
      * Connect to database depending on the requested mean of transportation
      *
      */
-    public void connectToDB() {
+    public void connectToDB(String passwd, String username, String dbName) {
         try {
             Class.forName("org.postgresql.Driver");
-            String user = "postgres";
-            String pwd = "admin";
-            String address = "jdbc:postgresql://localhost/gfts";
-
-            this.connect = DriverManager.getConnection(address, user, pwd);
+            String address = "jdbc:postgresql://localhost/" + dbName;
+            this.connect = DriverManager.getConnection(address, username, passwd);
 
         } catch (ClassNotFoundException e) {
             System.err.println("ClassNotFoundException : " + e.getMessage());
