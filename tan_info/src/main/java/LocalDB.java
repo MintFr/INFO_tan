@@ -31,7 +31,6 @@ public class LocalDB {
         } catch (SQLException e) {
             System.err.println("SQLException : " + e.getMessage()) ;
         }
-
     }
 
 
