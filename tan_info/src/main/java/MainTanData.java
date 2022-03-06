@@ -1,3 +1,5 @@
+import org.postgresql.util.PSQLException;
+
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -20,7 +22,7 @@ public class MainTanData {
         ConnectionDB distantCo = new ConnectionDB("admin", "postgres", "routing_pedestrian_test");  // MINT server database
 
         System.out.println("Insert all stops");
-        insertStops(localCo, distantCo);  // Take all stops and put them in the MINT database
+        // insertStops(localCo, distantCo);  // Take all stops and put them in the MINT database
         System.out.println("All stop inserted");
         System.out.println("Insert all ways");
         insertAllWays(localCo, distantCo);  // Insert all ways
@@ -93,8 +95,9 @@ public class MainTanData {
         while (routeIds.next()) {
             routeId = routeIds.getString("route_id");  // One line of bus/tram
             System.out.println(routeId);
-
+            System.out.println("Direction 0");
             insertWaysOneLine(routeId, "0", localCo, distantCo);
+            System.out.println("Direction 1");
             insertWaysOneLine(routeId, "1", localCo, distantCo);  // add stops on each direction
         }
     }
@@ -121,25 +124,33 @@ public class MainTanData {
         stmt1.setString(2, directionId);
         ResultSet res1 = stmt1.executeQuery();
         res1.next();  // Go to the first result
-        tripId = res1.getString("trip_id");
+        try {
+            tripId = res1.getString("trip_id");
 
-        String query2 = "SELECT stop_id FROM stop_times WHERE trip_id=? ORDER BY arrival_times";  // get all stops for the trip_id
-        PreparedStatement stmt2 = localCo.getConnect().prepareStatement(query2);
-        stmt2.setString(1, tripId);
-        ResultSet res2 = stmt2.executeQuery();
+            System.out.println("Trip id : " + tripId);
 
-        res2.next();  // get the first stop
-        stopPrevious = res2.getString("stop_id");
-        timePrevious = res2.getString("arrival_times");
+            String query2 = "SELECT stop_id, arrival_times FROM stop_times WHERE trip_id=? ORDER BY arrival_times";  // get all stops for the trip_id
+            PreparedStatement stmt2 = localCo.getConnect().prepareStatement(query2);
+            stmt2.setString(1, tripId);
+            ResultSet res2 = stmt2.executeQuery();
 
-        while (res2.next()) {
-            stopCurrent = res2.getString("stop_id");
-            timeCurrent = res2.getString("arrival_times");
+            res2.next();  // get the first stop
+            stopPrevious = res2.getString("stop_id");
+            timePrevious = res2.getString("arrival_times");
 
-            insertAWay(stopPrevious, timePrevious, stopCurrent, timeCurrent, distantCo);  // Insert a way between the two stops
+            while (res2.next()) {
+                stopCurrent = res2.getString("stop_id");
+                timeCurrent = res2.getString("arrival_times");
 
-            timePrevious = timeCurrent;
-            stopPrevious = stopCurrent;
+                insertAWay(stopPrevious, timePrevious, stopCurrent, timeCurrent, distantCo);  // Insert a way between the two stops
+
+                timePrevious = timeCurrent;
+                stopPrevious = stopCurrent;
+            }
+        }
+        catch (PSQLException e){
+            System.err.println("PSQLException : " + e.getMessage());
+            System.out.println("It is possible that the direction does not exist for this line");
         }
     }
 
@@ -184,8 +195,8 @@ public class MainTanData {
         ResultSet res2 = stmt.executeQuery();
         res2.next();
         int previousId = res2.getInt("id");
-        double previousLon = res1.getBigDecimal("lon").doubleValue();
-        double previousLat = res1.getBigDecimal("lat").doubleValue();
+        double previousLon = res2.getBigDecimal("lon").doubleValue();
+        double previousLat = res2.getBigDecimal("lat").doubleValue();
         String the_geom = "LINESTRING(" + previousLon + " " + previousLat + "," + currentLon + " " + previousLat + ")";
 
         String query2 = "INSERT INTO ways_with_pol(source, target, cost_fast, one_way, oneway, x1, y1, x2, y2, tan_data, the_geom) " +
