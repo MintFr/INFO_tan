@@ -1,5 +1,4 @@
 import org.postgresql.util.PSQLException;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
@@ -28,7 +27,7 @@ public class MainTanData {
         ConnectionDB localCo = new ConnectionDB(parameters.getString("pwdLocal"), parameters.getString("userLocal"), parameters.getString("dbNameLocal"), parameters.getString("addressLocal"));  // local database with TAN data
         ConnectionDB distantCo = new ConnectionDB(parameters.getString("pwdDistant"), parameters.getString("userDistant"), parameters.getString("dbNameDistant"), parameters.getString("addressDistant"));  // MINT server database
 
-        cleanData(localCo, distantCo, myLog);  // clean the tan data from the MINT database
+        cleanData(distantCo, myLog);  // clean the tan data from the MINT database
 
         insertStops(localCo, distantCo, myLog);  // Take all stops and put them in the MINT database. Link them with the existing nodes
 
@@ -38,7 +37,14 @@ public class MainTanData {
         distantCo.closeConnection();
     }
 
-    public static void cleanData(ConnectionDB localCo, ConnectionDB distantCo, Log myLog) throws SQLException {
+    /**
+     * Clean TAN data from the MINT database
+     *
+     * @param distantCo connection with MINT application database
+     * @param myLog     logger used
+     * @throws SQLException Problem with sql statement
+     */
+    public static void cleanData(ConnectionDB distantCo, Log myLog) throws SQLException {
         myLog.getLogger().info("Deleting data from ways_with_pol");
         String query0 = "DELETE FROM ways_with_pol WHERE tan_data; UPDATE ways_with_pol SET tan_data=false";
         PreparedStatement stmt0 = distantCo.getConnect().prepareStatement(query0);
@@ -102,6 +108,15 @@ public class MainTanData {
         myLog.getLogger().info("All stop inserted");
     }
 
+    /**
+     * Link a stop with the 5 closest nodes from OSM
+     *
+     * @param idStop    id of the stop to link
+     * @param lon       longitude of the stop to link
+     * @param lat       latitude of the stop to link
+     * @param distantCo connection with mint application database
+     * @throws SQLException Problem with SQL statement
+     */
     public static void linkWithPedestrianGraph(int idStop, BigDecimal lon, BigDecimal lat, ConnectionDB distantCo) throws SQLException {
         int nodeId;
         BigDecimal nodeLon;
@@ -241,8 +256,12 @@ public class MainTanData {
         long timeDifference = tCurrent.getTime() - tPrevious.getTime();  // difference in millisecondes
         timeDifference = timeDifference / 1000;  // go to secondes
 
-        if (timeDifference < 0) {  // if the current is after midnight and previous is before
+        if (timeDifference < 0) {  // if the current is after midnight and previous is before midnight we have negative duration
             timeDifference = timeDifference + 86400;  // add 86400 = number of seconds in a day
+        }
+
+        if (timeDifference == 0) {  // TAN can sometimes say that two successive stops have the same arrival_time
+            timeDifference = 60;  // it needs at least 1 minute
         }
 
         // get data from both stops
