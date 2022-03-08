@@ -1,5 +1,6 @@
 import org.postgresql.util.PSQLException;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,6 +10,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+
 public class MainTanData {
     /**
      * Main method
@@ -16,17 +18,24 @@ public class MainTanData {
      * @param args args
      * @throws SQLException problem with SQL statement
      */
-    public static void main(String[] args) throws SQLException, ParseException {
+    public static void main(String[] args) throws SQLException, ParseException, IOException {
+        String fileSuffix = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        Log myLog = new Log("logs/log_" + fileSuffix + ".txt");
+        myLog.getLogger().info("Ceci est un beau message de test");
 
         ConnectionDB localCo = new ConnectionDB("admin", "postgres", "gfts");  // local database with TAN data
         ConnectionDB distantCo = new ConnectionDB("admin", "postgres", "routing_pedestrian_test");  // MINT server database
 
-        System.out.println("Insert all stops");
-        // insertStops(localCo, distantCo);  // Take all stops and put them in the MINT database
-        System.out.println("All stop inserted");
-        System.out.println("Insert all ways");
-        insertAllWays(localCo, distantCo);  // Insert all ways
-        System.out.println("All ways inserted");
+        myLog.getLogger().info("Insert all stops");
+        insertStops(localCo, distantCo, myLog);  // Take all stops and put them in the MINT database
+        myLog.getLogger().info("All stop inserted");
+
+        myLog.getLogger().info("Insert all ways");
+        insertAllWays(localCo, distantCo, myLog);  // Insert all ways
+        myLog.getLogger().info("All ways inserted");
+
+        localCo.closeConnection();
+        distantCo.closeConnection();
     }
 
     /**
@@ -34,9 +43,10 @@ public class MainTanData {
      *
      * @param localCo   connection with local database with the TAN data
      * @param distantCo connection with mint application database
+     * @param myLog Logger used
      * @throws SQLException problem with SQL statement
      */
-    public static void insertStops(ConnectionDB localCo, ConnectionDB distantCo) throws SQLException {
+    public static void insertStops(ConnectionDB localCo, ConnectionDB distantCo, Log myLog) throws SQLException {
         String stop_id;
         String stop_lat;
         String stop_lon;
@@ -79,9 +89,10 @@ public class MainTanData {
      *
      * @param localCo   local database with TAN data
      * @param distantCo MINT server database
+     * @param myLog Logger used
      * @throws SQLException problem with SQL statement
      */
-    public static void insertAllWays(ConnectionDB localCo, ConnectionDB distantCo) throws SQLException, ParseException {
+    public static void insertAllWays(ConnectionDB localCo, ConnectionDB distantCo, Log myLog) throws SQLException, ParseException {
         String routeId;
 
         String query0 = "DELETE FROM ways_with_pol WHERE tan_data";
@@ -94,11 +105,11 @@ public class MainTanData {
 
         while (routeIds.next()) {
             routeId = routeIds.getString("route_id");  // One line of bus/tram
-            System.out.println(routeId);
-            System.out.println("Direction 0");
-            insertWaysOneLine(routeId, "0", localCo, distantCo);
-            System.out.println("Direction 1");
-            insertWaysOneLine(routeId, "1", localCo, distantCo);  // add stops on each direction
+            myLog.getLogger().info(routeId);
+
+            // add stops on each direction
+            insertWaysOneLine(routeId, "0", localCo, distantCo, myLog);
+            insertWaysOneLine(routeId, "1", localCo, distantCo, myLog);
         }
     }
 
@@ -109,9 +120,10 @@ public class MainTanData {
      * @param directionId 1 or 0, one way or another
      * @param localCo     connection to the database with TAN data
      * @param distantCo   MINT server database
+     * @param myLog Logger used
      * @throws SQLException problem with SQL statements
      */
-    public static void insertWaysOneLine(String routeId, String directionId, ConnectionDB localCo, ConnectionDB distantCo) throws SQLException, ParseException {
+    public static void insertWaysOneLine(String routeId, String directionId, ConnectionDB localCo, ConnectionDB distantCo, Log myLog) throws SQLException, ParseException {
         String tripId;
         String stopCurrent;
         String stopPrevious;
@@ -127,7 +139,7 @@ public class MainTanData {
         try {
             tripId = res1.getString("trip_id");
 
-            System.out.println("Trip id : " + tripId);
+            myLog.getLogger().info("For direction " + directionId + " trip id is " + tripId);
 
             String query2 = "SELECT stop_id, arrival_times FROM stop_times WHERE trip_id=? ORDER BY arrival_times";  // get all stops for the trip_id
             PreparedStatement stmt2 = localCo.getConnect().prepareStatement(query2);
@@ -142,15 +154,15 @@ public class MainTanData {
                 stopCurrent = res2.getString("stop_id");
                 timeCurrent = res2.getString("arrival_times");
 
-                insertAWay(stopPrevious, timePrevious, stopCurrent, timeCurrent, distantCo);  // Insert a way between the two stops
+                insertAWay(stopPrevious, timePrevious, stopCurrent, timeCurrent, distantCo, myLog);  // Insert a way between the two stops
 
                 timePrevious = timeCurrent;
                 stopPrevious = stopCurrent;
             }
         }
         catch (PSQLException e){
-            System.err.println("PSQLException : " + e.getMessage());
-            System.out.println("It is possible that the direction does not exist for this line");
+            myLog.getLogger().warning("PSQLException : " + e.getMessage());
+            myLog.getLogger().warning("It is possible that the direction does not exist for this line. Direction was not found or problem with the SQL statement");
         }
     }
 
@@ -162,10 +174,11 @@ public class MainTanData {
      * @param stopCurrent  current stop tan id
      * @param timeCurrent  time of arrival for current stop
      * @param distantCo    connection to the MINT server database
+     * @param myLog Logger used
      * @throws ParseException time format not correct
      * @throws SQLException   SQL statement not correct
      */
-    public static void insertAWay(String stopPrevious, String timePrevious, String stopCurrent, String timeCurrent, ConnectionDB distantCo) throws ParseException, SQLException {
+    public static void insertAWay(String stopPrevious, String timePrevious, String stopCurrent, String timeCurrent, ConnectionDB distantCo, Log myLog) throws ParseException, SQLException {
         DateFormat dateFormat = new SimpleDateFormat("hh:mm:ss");
 
         Date tPrevious = dateFormat.parse(timePrevious);
@@ -187,28 +200,27 @@ public class MainTanData {
         ResultSet res1 = stmt.executeQuery();
         res1.next();
         int currentId = res1.getInt("id");
-        double currentLon = res1.getBigDecimal("lon").doubleValue();
-        double currentLat = res1.getBigDecimal("lat").doubleValue();
+        BigDecimal currentLon = res1.getBigDecimal("lon");
+        BigDecimal currentLat = res1.getBigDecimal("lat");
 
         // Previous stop (source)
         stmt.setString(1, stopPrevious);
         ResultSet res2 = stmt.executeQuery();
         res2.next();
         int previousId = res2.getInt("id");
-        double previousLon = res2.getBigDecimal("lon").doubleValue();
-        double previousLat = res2.getBigDecimal("lat").doubleValue();
-        String the_geom = "LINESTRING(" + previousLon + " " + previousLat + "," + currentLon + " " + previousLat + ")";
-
+        BigDecimal previousLon = res2.getBigDecimal("lon");
+        BigDecimal previousLat = res2.getBigDecimal("lat");
+        String the_geom = "LINESTRING(" + previousLon + " " + previousLat + "," + currentLon + " " + currentLat + ")";
         String query2 = "INSERT INTO ways_with_pol(source, target, cost_fast, one_way, oneway, x1, y1, x2, y2, tan_data, the_geom) " +
                 "VALUES (?, ?, ?, 1, 'YES', ?, ?, ?, ?, true, ST_GeomFromText(?))";
         PreparedStatement stmt2 = distantCo.getConnect().prepareStatement(query2);
         stmt2.setInt(1, previousId);  // source
         stmt2.setInt(2, currentId);  // target
         stmt2.setDouble(3, timeDifference);  // cost in seconds
-        stmt2.setDouble(4, previousLon);
-        stmt2.setDouble(5, previousLat);
-        stmt2.setDouble(6, currentLon);
-        stmt2.setDouble(7, currentLat);
+        stmt2.setDouble(4, previousLon.doubleValue());
+        stmt2.setDouble(5, previousLat.doubleValue());
+        stmt2.setDouble(6, currentLon.doubleValue());
+        stmt2.setDouble(7, currentLat.doubleValue());
         stmt2.setString(8, the_geom);
 
         stmt2.executeUpdate();
