@@ -10,9 +10,10 @@ public class ConnectionDB {
      * @param passwd password for database connection
      * @param username username for database connection
      * @param dbName name of the database
+     * @param address address of the database
      */
-    public ConnectionDB(String passwd, String username, String dbName) {
-        this.connectToDB(passwd, username, dbName);
+    public ConnectionDB(String passwd, String username, String dbName, String address) {
+        this.connectToDB(passwd, username, dbName, address);
     }
 
 
@@ -21,13 +22,13 @@ public class ConnectionDB {
      * @param passwd password for database connection
      * @param username username for database connection
      * @param dbName name of the database
+     * @param address address of the database
      */
-    public void connectToDB(String passwd, String username, String dbName) {
+    public void connectToDB(String passwd, String username, String dbName, String address) {
         try {
             Class.forName("org.postgresql.Driver");
-            String address = "jdbc:postgresql://localhost/" + dbName;
-            this.connect = DriverManager.getConnection(address, username, passwd);
-
+            String fullAddress = "jdbc:postgresql://" + address + "/" + dbName;
+            this.connect = DriverManager.getConnection(fullAddress, username, passwd);
         } catch (ClassNotFoundException e) {
             System.err.println("ClassNotFoundException : " + e.getMessage());
         } catch (SQLException e) {
@@ -53,5 +54,4 @@ public class ConnectionDB {
     public Connection getConnect() {
         return connect;
     }
-
 }
