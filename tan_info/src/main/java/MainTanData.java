@@ -1,10 +1,10 @@
 import org.postgresql.util.PSQLException;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -71,15 +71,13 @@ public class MainTanData {
         String stop_id;
         String stop_lat;
         String stop_lon;
-        PreparedStatement stmt2;
+
         BigDecimal lon;
         BigDecimal lat;
-        String the_geom;
 
         myLog.getLogger().info("Insert all stops from tan data");
 
         String query1 = "SELECT stop_id, stop_lat, stop_lon FROM stops";  // get information for all stops on local database
-        String query2 = "INSERT INTO ways_vertices_pgr(tan_data, station_name, lat, lon, the_geom) VALUES (true, ?, ?, ?, ST_GeomFromText(?)) RETURNING ID";  // insert stops data into MINT server
 
         PreparedStatement stmt1 = localCo.getConnect().prepareStatement(query1);
         ResultSet stops = stmt1.executeQuery();
@@ -91,67 +89,14 @@ public class MainTanData {
             lat = new BigDecimal(stop_lat);  // adapt for numeric type
             stop_lon = stops.getString("stop_lon");
             lon = new BigDecimal(stop_lon);
-            the_geom = "POINT(" + stop_lon + " " + stop_lat + ")";
 
-            stmt2 = distantCo.getConnect().prepareStatement(query2);
-            stmt2.setString(1, stop_id);
-            stmt2.setBigDecimal(2, lat);  // adapt for numeric type
-            stmt2.setBigDecimal(3, lon);
-            stmt2.setString(4, the_geom);
+            Stop stopTan = new Stop(stop_id, lon, lat);
 
-            ResultSet idGenerated = stmt2.executeQuery();  // get the id of the inserted data
-            idGenerated.next();
-            int idStop = idGenerated.getInt("id");
+            stopTan.addStopVertices(distantCo); // add the stop to MINT database and get the new ID generated
 
-            linkWithPedestrianGraph(idStop, lon, lat, distantCo);  // from the stop we create 5 ways to already existing nodes
+            stopTan.linkWithPedestrianGraph(distantCo);  // from the stop we create 5 ways to already existing nodes
         }
         myLog.getLogger().info("All stop inserted");
-    }
-
-    /**
-     * Link a stop with the 5 closest nodes from OSM
-     *
-     * @param idStop    id of the stop to link
-     * @param lon       longitude of the stop to link
-     * @param lat       latitude of the stop to link
-     * @param distantCo connection with mint application database
-     * @throws SQLException Problem with SQL statement
-     */
-    public static void linkWithPedestrianGraph(int idStop, BigDecimal lon, BigDecimal lat, ConnectionDB distantCo) throws SQLException {
-        int nodeId;
-        BigDecimal nodeLon;
-        BigDecimal nodeLat;
-        PreparedStatement stmt2;
-
-        // Get a list of close nodes that are not from tan_data : access bus/tram stops as a pedestrian
-        String query1 = "SELECT id, lon, lat FROM ways_vertices_pgr WHERE tan_data=false ORDER BY the_geom <-> ST_SetSRID(ST_Point (?, ?),4326) limit 5;";
-        PreparedStatement stmt1 = distantCo.getConnect().prepareStatement(query1);
-        stmt1.setBigDecimal(1, lon);
-        stmt1.setBigDecimal(2, lat);
-        ResultSet pedestrianNodes = stmt1.executeQuery();
-
-        String query2 = "INSERT INTO ways_with_pol(source, target, cost_fast, x1, y1, x2, y2, tan_data, the_geom) " +
-                "VALUES (?, ?, 40, ?, ?, ?, ?, true, ST_GeomFromText(?))";  // arbitrary cost of 40s for the closest nodes possible
-
-        while (pedestrianNodes.next()) {
-            nodeId = pedestrianNodes.getInt("id");
-            nodeLon = pedestrianNodes.getBigDecimal("lon");
-            nodeLat = pedestrianNodes.getBigDecimal("lat");
-
-            String the_geom = "LINESTRING(" + lon + " " + lat + "," + nodeLon + " " + nodeLat + ")";
-
-            stmt2 = distantCo.getConnect().prepareStatement(query2);
-
-            stmt2.setInt(1, idStop);  // source
-            stmt2.setInt(2, nodeId);  // target
-            stmt2.setDouble(3, lon.doubleValue());
-            stmt2.setDouble(4, lat.doubleValue());
-            stmt2.setDouble(5, nodeLon.doubleValue());
-            stmt2.setDouble(6, nodeLat.doubleValue());
-            stmt2.setString(7, the_geom);
-
-            stmt2.executeUpdate();
-        }
     }
 
 
@@ -195,21 +140,19 @@ public class MainTanData {
      */
     public static void insertWaysOneLine(String routeId, String directionId, ConnectionDB localCo, ConnectionDB distantCo, Log myLog) throws SQLException, ParseException {
         String tripId;
-        String stopCurrent;
-        String stopPrevious;
-        String timeCurrent;
-        String timePrevious;
+        String tripHead;
 
-        String query1 = "SELECT trip_id FROM trip WHERE route_id=? AND direction_id=? LIMIT 1";  // get a trip_id for a service (example : line 2-0)
+        String query1 = "SELECT trip_id, trip_headsign FROM trip WHERE route_id=? AND direction_id=? LIMIT 1";  // get a trip_id for a service (example : line 2-0)
         PreparedStatement stmt1 = localCo.getConnect().prepareStatement(query1);
         stmt1.setString(1, routeId);
         stmt1.setString(2, directionId);
         ResultSet res1 = stmt1.executeQuery();
         res1.next();  // Go to the first result
+
         try {
             tripId = res1.getString("trip_id");
-
-            myLog.getLogger().info("For direction " + directionId + " the chosen tripId is " + tripId);
+            tripHead = res1.getString("trip_headsign");
+            myLog.getLogger().info("For direction " + directionId + " " + tripHead + ", the chosen tripId is " + tripId);
 
             String query2 = "SELECT stop_id, arrival_times FROM stop_times WHERE trip_id=? ORDER BY arrival_times";  // get all stops for the trip_id
             PreparedStatement stmt2 = localCo.getConnect().prepareStatement(query2);
@@ -217,92 +160,28 @@ public class MainTanData {
             ResultSet res2 = stmt2.executeQuery();
 
             res2.next();  // get the first stop
-            stopPrevious = res2.getString("stop_id");
-            timePrevious = res2.getString("arrival_times");
+
+            Way wayAdded = new Way(routeId, tripHead);
+            wayAdded.getPrevious().setName(res2.getString("stop_id"));  // id in TAN local database is the name in MINT database
+            wayAdded.getPrevious().setArrivalTime(res2.getString("arrival_times"));
+
+            wayAdded.getPrevious().fetchFromStationName(distantCo);  // get the data FROM MINT database using the station_name
+
+            
 
             while (res2.next()) {
-                stopCurrent = res2.getString("stop_id");
-                timeCurrent = res2.getString("arrival_times");
+                wayAdded.getCurrent().setName(res2.getString("stop_id")); // id in TAN local database is the name in MINT database
+                wayAdded.getCurrent().setArrivalTime(res2.getString("arrival_times"));
 
-                insertAWay(stopPrevious, timePrevious, stopCurrent, timeCurrent, routeId, distantCo);  // Insert a way between the two stops
+                wayAdded.getCurrent().fetchFromStationName(distantCo);  // get the data FROM MINT database using the station_name
 
-                timePrevious = timeCurrent;
-                stopPrevious = stopCurrent;
+                wayAdded.insertAFullWay(distantCo);  // Insert a way between the two stops
+
+                wayAdded.nextStop();  // copy the current into previous then delete current
             }
         } catch (PSQLException e) {
             myLog.getLogger().warning("PSQLException : " + e.getMessage() +
                     "\nIt is possible that the direction does not exist for this line. Direction was not found or problem with the SQL statement");
         }
-    }
-
-    /**
-     * Insert a way between two stops
-     *
-     * @param stopPrevious previous stop tan id
-     * @param timePrevious time of arrival for previous stop
-     * @param stopCurrent  current stop tan id
-     * @param timeCurrent  time of arrival for current stop
-     * @param routeId      route id for the two stops
-     * @param distantCo    connection to the MINT server database
-     * @throws ParseException time format not correct
-     * @throws SQLException   SQL statement not correct
-     */
-    public static void insertAWay(String stopPrevious, String timePrevious, String stopCurrent, String timeCurrent, String routeId, ConnectionDB distantCo) throws ParseException, SQLException {
-        DateFormat dateFormat = new SimpleDateFormat("hh:mm:ss");
-
-        Date tPrevious = dateFormat.parse(timePrevious);
-        Date tCurrent = dateFormat.parse(timeCurrent);
-
-        long timeDifference = tCurrent.getTime() - tPrevious.getTime();  // difference in millisecondes
-        timeDifference = timeDifference / 1000;  // go to secondes
-
-        if (timeDifference < 0) {  // if the current is after midnight and previous is before midnight we have negative duration
-            timeDifference = timeDifference + 86400;  // add 86400 = number of seconds in a day
-        }
-
-        if (timeDifference == 0) {  // TAN can sometimes say that two successive stops have the same arrival_time
-            timeDifference = 60;  // it needs at least 1 minute
-        }
-
-        // get data from both stops
-        String query1 = "SELECT id, lon, lat, station_name FROM ways_vertices_pgr WHERE station_name = ? AND tan_data";
-        PreparedStatement stmt = distantCo.getConnect().prepareStatement(query1);
-
-        // Current stop (target)
-        stmt.setString(1, stopCurrent);
-        ResultSet res1 = stmt.executeQuery();
-        res1.next();
-        int currentId = res1.getInt("id");
-        BigDecimal currentLon = res1.getBigDecimal("lon");
-        BigDecimal currentLat = res1.getBigDecimal("lat");
-        String currentName = res1.getString("station_name");
-
-        // Previous stop (source)
-        stmt.setString(1, stopPrevious);
-        ResultSet res2 = stmt.executeQuery();
-        res2.next();
-        int previousId = res2.getInt("id");
-        BigDecimal previousLon = res2.getBigDecimal("lon");
-        BigDecimal previousLat = res2.getBigDecimal("lat");
-        String previousName = res2.getString("station_name");
-
-        String the_geom = "LINESTRING(" + previousLon + " " + previousLat + "," + currentLon + " " + currentLat + ")";
-
-        String query2 = "INSERT INTO ways_with_pol(source, target, cost_fast, one_way, oneway, x1, y1, x2, y2, source_name, target_name, route_id, tan_data, the_geom) " +
-                "VALUES (?, ?, ?, 1, 'YES', ?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?))";
-        PreparedStatement stmt2 = distantCo.getConnect().prepareStatement(query2);
-        stmt2.setInt(1, previousId);  // source
-        stmt2.setInt(2, currentId);  // target
-        stmt2.setDouble(3, timeDifference);  // cost in seconds
-        stmt2.setDouble(4, previousLon.doubleValue());
-        stmt2.setDouble(5, previousLat.doubleValue());
-        stmt2.setDouble(6, currentLon.doubleValue());
-        stmt2.setDouble(7, currentLat.doubleValue());
-        stmt2.setString(8, previousName);
-        stmt2.setString(9, currentName);
-        stmt2.setString(10, routeId);
-        stmt2.setString(11, the_geom);
-
-        stmt2.executeUpdate();
     }
 }
