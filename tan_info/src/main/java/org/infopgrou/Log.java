@@ -1,3 +1,5 @@
+package org.infopgrou;
+
 import java.io.IOException;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -14,7 +16,7 @@ public class Log {
         File f = new File(fileName);
 
         if (!f.exists()){
-            final boolean newFile = f.createNewFile();
+            f.createNewFile();
         }
 
         fh = new FileHandler(fileName, true);

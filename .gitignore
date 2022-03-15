@@ -32,3 +32,7 @@ hs_err_pid*
 
 ### Intellij ###
 /tan_info/.idea/
+
+#SonarQube - Ant
+/tan_info/.scannerwork/
+/tan_info/build.xml

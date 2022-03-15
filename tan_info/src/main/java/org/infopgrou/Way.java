@@ -1,3 +1,7 @@
+package org.infopgrou;
+
+import org.postgresql.util.PSQLException;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.text.DateFormat;
@@ -55,31 +59,36 @@ public class Way {
      * Insert a way between two stops
      *
      * @param distantCo connection to the MINT server database
+     * @param myLog     logger
      * @throws ParseException parse error for timeDifference
      * @throws SQLException   SQL statement not correct
      */
-    public void insertAFullWay(ConnectionDB distantCo) throws SQLException, ParseException {
+    public void insertAFullWay(ConnectionDB distantCo, Log myLog) throws SQLException, ParseException {
         long timeDiff = this.timeDifference();
 
-        String the_geom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
+        String theGeom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
 
         String query = "INSERT INTO ways_with_pol(source, target, cost_fast, one_way, oneway, x1, y1, x2, y2, source_name, target_name, route_id, trip_head, tan_data, the_geom) " +
                 "VALUES (?, ?, ?, 1, 'YES', ?, ?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?))";
-        PreparedStatement stmt = distantCo.getConnect().prepareStatement(query);
-        stmt.setInt(1, this.getPrevious().getId());  // source
-        stmt.setInt(2, this.getCurrent().getId());  // target
-        stmt.setDouble(3, timeDiff);  // cost in seconds
-        stmt.setDouble(4, this.getPrevious().getLon().doubleValue());
-        stmt.setDouble(5, this.getPrevious().getLat().doubleValue());
-        stmt.setDouble(6, this.getCurrent().getLon().doubleValue());
-        stmt.setDouble(7, this.getCurrent().getLat().doubleValue());
-        stmt.setString(8, this.getPrevious().getName());
-        stmt.setString(9, this.getCurrent().getName());
-        stmt.setString(10, this.getRouteId());
-        stmt.setString(11, this.getTripHead());
-        stmt.setString(12, the_geom);
 
-        stmt.executeUpdate();
+        try (PreparedStatement stmt = distantCo.getConnect().prepareStatement(query)) {
+            stmt.setInt(1, this.getPrevious().getId());  // source
+            stmt.setInt(2, this.getCurrent().getId());  // target
+            stmt.setDouble(3, timeDiff);  // cost in seconds
+            stmt.setDouble(4, this.getPrevious().getLon().doubleValue());
+            stmt.setDouble(5, this.getPrevious().getLat().doubleValue());
+            stmt.setDouble(6, this.getCurrent().getLon().doubleValue());
+            stmt.setDouble(7, this.getCurrent().getLat().doubleValue());
+            stmt.setString(8, this.getPrevious().getName());
+            stmt.setString(9, this.getCurrent().getName());
+            stmt.setString(10, this.getRouteId());
+            stmt.setString(11, this.getTripHead());
+            stmt.setString(12, theGeom);
+
+            stmt.executeUpdate();
+        } catch (PSQLException e) {
+            myLog.getLogger().warning("PSQLException : " + e.getMessage());
+        }
     }
 
     /**
@@ -87,26 +96,31 @@ public class Way {
      *
      * @param distantCo connection to the MINT server database
      * @param cost      cost to set the way
+     * @param myLog     logger
      * @throws SQLException SQL statement not correct
      */
-    public void insertASimpleWay(ConnectionDB distantCo, int cost) throws SQLException {
+    public void insertASimpleWay(ConnectionDB distantCo, int cost, Log myLog) throws SQLException {
 
-        String the_geom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
+        String theGeom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
 
         String query = "INSERT INTO ways_with_pol(source, target, cost_fast, x1, y1, x2, y2, tan_data, the_geom) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?))";
 
-        PreparedStatement stmt = distantCo.getConnect().prepareStatement(query);
-        stmt.setInt(1, this.getPrevious().getId());  // source
-        stmt.setInt(2, this.getCurrent().getId());  // target
-        stmt.setDouble(4, this.getPrevious().getLon().doubleValue());
-        stmt.setDouble(5, this.getPrevious().getLat().doubleValue());
-        stmt.setDouble(6, this.getCurrent().getLon().doubleValue());
-        stmt.setDouble(7, this.getCurrent().getLat().doubleValue());
-        stmt.setString(8, the_geom);
-        stmt.setDouble(3, cost);
+        try (PreparedStatement stmt = distantCo.getConnect().prepareStatement(query)) {
 
-        stmt.executeUpdate();
+            stmt.setInt(1, this.getPrevious().getId());  // source
+            stmt.setInt(2, this.getCurrent().getId());  // target
+            stmt.setDouble(4, this.getPrevious().getLon().doubleValue());
+            stmt.setDouble(5, this.getPrevious().getLat().doubleValue());
+            stmt.setDouble(6, this.getCurrent().getLon().doubleValue());
+            stmt.setDouble(7, this.getCurrent().getLat().doubleValue());
+            stmt.setString(8, theGeom);
+            stmt.setDouble(3, cost);
+
+            stmt.executeUpdate();
+        } catch (PSQLException e) {
+            myLog.getLogger().warning("PSQLException : " + e.getMessage());
+        }
     }
 
     /**
@@ -141,7 +155,7 @@ public class Way {
      * @return distance
      */
     public double distanceLonLat() {
-        double R = 6371e3;
+        double r = 6371e3;
 
         double lon1 = Math.toRadians(this.getCurrent().getLon().doubleValue());
         double lon2 = Math.toRadians(this.getPrevious().getLon().doubleValue());
@@ -155,7 +169,7 @@ public class Way {
 
         double c = 2 * Math.asin(Math.sqrt(a));
 
-        return (c * R);
+        return (c * r);
     }
 
     /**
