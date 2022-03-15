@@ -86,25 +86,27 @@ public class Way {
      * Insert a way between two stops
      *
      * @param distantCo connection to the MINT server database
-     * @throws SQLException   SQL statement not correct
+     * @param cost      cost to set the way
+     * @throws SQLException SQL statement not correct
      */
-    public void insertAWayWithPedestrian(ConnectionDB distantCo) throws SQLException {
+    public void insertASimpleWay(ConnectionDB distantCo, int cost) throws SQLException {
 
         String the_geom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
 
         String query = "INSERT INTO ways_with_pol(source, target, cost_fast, x1, y1, x2, y2, tan_data, the_geom) " +
-                "VALUES (?, ?, 30, ?, ?, ?, ?, true, ST_GeomFromText(?))";  // arbitrary cost of 30s for the closest nodes possible
+                "VALUES (?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?))";
 
-        PreparedStatement stmt2 = distantCo.getConnect().prepareStatement(query);
-        stmt2.setInt(1, this.getPrevious().getId());  // source
-        stmt2.setInt(2, this.getCurrent().getId());  // target
-        stmt2.setDouble(3, this.getPrevious().getLon().doubleValue());
-        stmt2.setDouble(4, this.getPrevious().getLat().doubleValue());
-        stmt2.setDouble(5, this.getCurrent().getLon().doubleValue());
-        stmt2.setDouble(6, this.getCurrent().getLat().doubleValue());
-        stmt2.setString(7, the_geom);
+        PreparedStatement stmt = distantCo.getConnect().prepareStatement(query);
+        stmt.setInt(1, this.getPrevious().getId());  // source
+        stmt.setInt(2, this.getCurrent().getId());  // target
+        stmt.setDouble(4, this.getPrevious().getLon().doubleValue());
+        stmt.setDouble(5, this.getPrevious().getLat().doubleValue());
+        stmt.setDouble(6, this.getCurrent().getLon().doubleValue());
+        stmt.setDouble(7, this.getCurrent().getLat().doubleValue());
+        stmt.setString(8, the_geom);
+        stmt.setDouble(3, cost);
 
-        stmt2.executeUpdate();
+        stmt.executeUpdate();
     }
 
     /**

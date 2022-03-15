@@ -124,16 +124,15 @@ public class Stop {
             wayAdded.getCurrent().setLat(pedestrianNodes.getBigDecimal("lat"));
 
             if (wayAdded.distanceLonLat() < 200) {  // don't add a link with a faraway node
-                wayAdded.insertAWayWithPedestrian(distantCo);
+                wayAdded.insertASimpleWay(distantCo, 50);  // set a cost of 50s to get to the bus stop
             }
         }
     }
 
-
     /**
      * Get lon, lat and id from MINT database using the station_name
      *
-     * @param distantCo     connection to MINT database
+     * @param distantCo connection to MINT database
      * @throws SQLException sql error
      */
     public void fetchFromStationName(ConnectionDB distantCo) throws SQLException {
@@ -150,5 +149,20 @@ public class Stop {
         this.setId(res.getInt("id"));
         this.setLon(res.getBigDecimal("lon"));
         this.setLat(res.getBigDecimal("lat"));
+    }
+
+    /**
+     * Add the mock to ways_vertices_pgr again. Get a new id. Then create a way of 5min between the true stop and the mock one
+     *
+     * @param distantCo MINT database connection
+     * @throws SQLException sql error
+     */
+    public void mockStop(ConnectionDB distantCo) throws SQLException {
+        Way wasAdded = new Way(new Stop(this));
+        this.addStopVertices(distantCo);  // add the stop again to MINT database. To duplicate it and get a new ID
+        wasAdded.setCurrent(new Stop(this)); // add the new stop to the way as current
+
+        // add a way with a cost of 5min to model the wait for the bus or change. Weight to not prioritize changing bus/tram too much
+        wasAdded.insertASimpleWay(distantCo, 300);
     }
 }

@@ -167,7 +167,7 @@ public class MainTanData {
 
             wayAdded.getPrevious().fetchFromStationName(distantCo);  // get the data FROM MINT database using the station_name
 
-            
+            wayAdded.getPrevious().mockStop(distantCo);  // duplicate the stop and get a new ID for this line only
 
             while (res2.next()) {
                 wayAdded.getCurrent().setName(res2.getString("stop_id")); // id in TAN local database is the name in MINT database
@@ -175,7 +175,9 @@ public class MainTanData {
 
                 wayAdded.getCurrent().fetchFromStationName(distantCo);  // get the data FROM MINT database using the station_name
 
-                wayAdded.insertAFullWay(distantCo);  // Insert a way between the two stops
+                wayAdded.getCurrent().mockStop(distantCo); // duplicate the stop and get a new ID for this line only
+
+                wayAdded.insertAFullWay(distantCo);  // Insert a way between the two mock stops
 
                 wayAdded.nextStop();  // copy the current into previous then delete current
             }
