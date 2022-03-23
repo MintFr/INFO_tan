@@ -13,23 +13,25 @@ public class Reader {
     private String db_username;
     private String db_password;
     private String dbURL;
+    private Log logger;
 
-    public Reader(String path, String db_username, String db_password, String dbURL) {
+    public Reader(String path, String db_username, String db_password, String dbURL, Log logger) {
         this.path = path;
         this.db_username = db_username;
         this.db_password = db_password;
         this.dbURL = dbURL;
+        this.logger = logger;
     }
 
     /**
      * Reading stops from stops.txt files
      */
     public void readStop(){
-        System.out.println("Reading stops.txt ...");
+        logger.getLogger().info("Reading stops.txt ...");
         try {
             reader = new BufferedReader(new FileReader(path+"/stops.txt"));
         } catch (FileNotFoundException ex) {
-            System.out.println("File not found!");
+            logger.getLogger().warning("File not found!");
         }
         try {
             String header = reader.readLine();
@@ -80,26 +82,26 @@ public class Reader {
             }
             catch(java.lang.ClassNotFoundException e)
             {
-                System.err.println("ClassNotFoundException : " + e.getMessage());
+                logger.getLogger().warning("ClassNotFoundException : " + e.getMessage());
             }
             catch (SQLException ex)
             {
-                System.err.println("SQLException : " + ex.getMessage());
+                logger.getLogger().warning("SQLException : " + ex.getMessage());
             }
 
 
         } catch(IOException ex) {
-            System.out.println("Can't read from file");
+            logger.getLogger().warning("Can't read from file");
         }
 
-        System.out.println("stops.txt saved with success!");
+        logger.getLogger().info("stops.txt saved with success!");
     }
 
     /**
      * Reading stop_times file
      */
     public void readStopTimes(){
-        System.out.println("Reading stop_times.txt ...");
+        logger.getLogger().info("Reading stop_times.txt ...");
 
         InputStream is = null;
 
@@ -112,7 +114,7 @@ public class Reader {
                 // Creating an instance of Inputstream
                 is = new FileInputStream(path+"/stop_times.txt");
             } catch (FileNotFoundException ex) {
-                System.out.println("File not found!");
+                logger.getLogger().warning("File not found!");
             }
 
             // Try block to check for exceptions
@@ -162,14 +164,14 @@ public class Reader {
                 connect.close();
             } catch (SQLException ex)
             {
-                System.err.println("SQLException : " + ex.getMessage());
+                logger.getLogger().warning("SQLException : " + ex.getMessage());
             }
         } catch (SQLException | ClassNotFoundException throwables) {
             throwables.printStackTrace();
         }
 
 
-        System.out.println("stop_times.txt saved with success!");
+        logger.getLogger().info("stop_times.txt saved with success!");
     }
 
     /**
@@ -177,11 +179,11 @@ public class Reader {
      */
     public void readCalendarDates(){
 
-        System.out.println("Reading calendar_dates.txt ...");
+        logger.getLogger().info("Reading calendar_dates.txt ...");
         try {
             reader = new BufferedReader(new FileReader(path+"/calendar_dates.txt"));
         } catch (FileNotFoundException ex) {
-            System.out.println("File not found!");
+            logger.getLogger().warning("File not found!");
         }
 
         try {
@@ -218,17 +220,17 @@ public class Reader {
             }
             catch(java.lang.ClassNotFoundException e)
             {
-                System.err.println("ClassNotFoundException : " + e.getMessage());
+                logger.getLogger().warning("ClassNotFoundException : " + e.getMessage());
             }
             catch (SQLException ex)
             {
-                System.err.println("SQLException : " + ex.getMessage());
+                logger.getLogger().warning("SQLException : " + ex.getMessage());
             }
         } catch(IOException ex) {
-            System.out.println("Can't read from file");
+            logger.getLogger().warning("Can't read from file");
         }
 
-        System.out.println("calendar_dates.txt saved with success!");
+        logger.getLogger().info("calendar_dates.txt saved with success!");
     }
 
     /**
@@ -236,11 +238,11 @@ public class Reader {
      */
     public void readCalendar(){
 
-        System.out.println("Reading calendar.txt ...");
+        logger.getLogger().info("Reading calendar.txt ...");
         try {
             reader = new BufferedReader(new FileReader(path + "/calendar.txt"));
         } catch (FileNotFoundException ex) {
-            System.out.println("File not found!");
+            logger.getLogger().warning("File not found!");
         }
 
         try {
@@ -284,28 +286,28 @@ public class Reader {
             }
             catch(java.lang.ClassNotFoundException e)
             {
-                System.err.println("ClassNotFoundException : " + e.getMessage());
+                logger.getLogger().warning("ClassNotFoundException : " + e.getMessage());
             }
             catch (SQLException ex)
             {
-                System.err.println("SQLException : " + ex.getMessage());
+                logger.getLogger().warning("SQLException : " + ex.getMessage());
             }
         } catch(IOException ex) {
-            System.out.println("Can't read from file");
+            logger.getLogger().warning("Can't read from file");
         }
 
-        System.out.println("calendar.txt saved with success!");
+        logger.getLogger().info("calendar.txt saved with success!");
     }
 
     /**
      * Reading Routes
      */
     public void readRoutes(){
-        System.out.println("Reading routes.txt");
+        logger.getLogger().info("Reading routes.txt");
         try {
             reader = new BufferedReader(new FileReader(path+"/routes.txt"));
         } catch (FileNotFoundException ex) {
-            System.out.println("File not found!");
+            logger.getLogger().warning("File not found!");
         }
 
         try {
@@ -351,23 +353,23 @@ public class Reader {
             }
             catch(java.lang.ClassNotFoundException e)
             {
-                System.err.println("ClassNotFoundException : " + e.getMessage());
+                logger.getLogger().warning("ClassNotFoundException : " + e.getMessage());
             }
             catch (SQLException ex)
             {
-                System.err.println("SQLException : " + ex.getMessage());
+                logger.getLogger().warning("SQLException : " + ex.getMessage());
             }
         } catch(IOException ex) {
-            System.out.println("Can't read from file");
+            logger.getLogger().warning("Can't read from file");
         }
-        System.out.println("routes.txt saved with success!");
+        logger.getLogger().info("routes.txt saved with success!");
     }
 
     /**
      * Reading Trips
      */
     public void readTrips(){
-        System.out.println("Reading trips.txt ...");
+        logger.getLogger().info("Reading trips.txt ...");
 
         InputStream is = null;
 
@@ -380,7 +382,7 @@ public class Reader {
                 // Creating an instance of Inputstream
                 is = new FileInputStream(path+"/trips.txt");
             } catch (FileNotFoundException ex) {
-                System.out.println("File not found!");
+                logger.getLogger().warning("File not found!");
             }
 
             // Try block to check for exceptions
@@ -429,14 +431,14 @@ public class Reader {
                 connect.close();
             } catch (SQLException ex)
             {
-                System.err.println("SQLException : " + ex.getMessage());
+                logger.getLogger().warning("SQLException : " + ex.getMessage());
             }
         } catch (SQLException | ClassNotFoundException throwables) {
             throwables.printStackTrace();
         }
 
 
-        System.out.println("trips.txt saved with success!");
+        logger.getLogger().info("trips.txt saved with success!");
 
     }
 }
