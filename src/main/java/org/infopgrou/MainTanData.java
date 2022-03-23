@@ -28,29 +28,31 @@ public class MainTanData {
      * @throws JSONException  can't get url
      */
     public static void main(String[] args) throws SQLException, ParseException, IOException, JSONException {
-        String fileSuffix = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        Log myLog = new Log("logs/log_" + fileSuffix + ".txt");
 
+
+        String fileSuffix = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        Log myLog = new Log("logs" ,"/log_" + fileSuffix + ".txt");
         ResourceBundle parameters = ResourceBundle.getBundle("credentials");  // get passwords, usernames, addresses, and database name
         myLog.getLogger().info("Connection to local database");
         ConnectionDB localCo = new ConnectionDB(parameters.getString("pwdLocal"), parameters.getString("userLocal"), parameters.getString("dbNameLocal"), parameters.getString("addressLocal"), myLog);  // local database with TAN data
         myLog.getLogger().info("Connected to local database");
 
+
         // Code to load data from TAN API
         DataLoader dataLoader = new DataLoader("https://data.nantesmetropole.fr/api/records/1.0/search/?dataset=244400404_tan-arrets-horaires-circuits&q=");
-        System.out.println(dataLoader.getUrl());
         String zipFilePath = "data/gtfs-tan.zip";
         String destDir = "data";
-        dataLoader.downloadAndUnzip(zipFilePath, destDir);
+        dataLoader.downloadAndUnzip(zipFilePath, destDir, myLog);
 
         // code to put TAN data into local database
-        Reader rd = new Reader("data", parameters.getString("userLocal"), parameters.getString("pwdLocal"), "jdbc:postgresql://" + parameters.getString("addressLocal") + "/" + parameters.getString("dbNameLocal"));
+        Reader rd = new Reader("data", parameters.getString("userLocal"), parameters.getString("pwdLocal"), "jdbc:postgresql://" + parameters.getString("addressLocal") + "/" + parameters.getString("dbNameLocal"), myLog);
         rd.readCalendar();
         rd.readCalendarDates();
         rd.readStop();
         rd.readRoutes();
         rd.readTrips();
         rd.readStopTimes();
+
 
         // code to put all TAN data from local database to distant MINT database
         myLog.getLogger().info("Connection to distant database");
@@ -256,4 +258,5 @@ public class MainTanData {
                     "\nIt is possible that the direction does not exist for this line. Direction was not found or problem with the SQL statement");
         }
     }
+
 }
