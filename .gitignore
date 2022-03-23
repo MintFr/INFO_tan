@@ -31,8 +31,9 @@ hs_err_pid*
 # Edit at https://www.toptal.com/developers/gitignore?templates=intellij
 
 ### Intellij ###
-/tan_info/.idea/
+/.idea/
 
 #SonarQube - Ant
-/tan_info/.scannerwork/
-/tan_info/build.xml
+/.scannerwork/
+build.xml
+/build.xml

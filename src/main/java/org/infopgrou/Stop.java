@@ -91,7 +91,7 @@ public class Stop {
     public void addStopVertices(ConnectionDB distantCo, Log myLog) throws SQLException {
         String theGeom;
 
-        String query = "INSERT INTO ways_vertices_pgr(tan_data, station_name, lat, lon, the_geom) VALUES (true, ?, ?, ?, ST_GeomFromText(?)) RETURNING ID";  // insert stops data into MINT server
+        String query = "INSERT INTO ways_vertices_pgr(tan_data, station_name, lat, lon, the_geom) VALUES (true, ?, ?, ?, ST_GeomFromText(?, 4326)) RETURNING ID";  // insert stops data into MINT server
         theGeom = "POINT(" + this.getLon() + " " + this.getLat() + ")";
         try (PreparedStatement stmt = distantCo.getConnect().prepareStatement(query)) {
 

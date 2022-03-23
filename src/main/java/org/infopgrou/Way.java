@@ -69,7 +69,7 @@ public class Way {
         String theGeom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
 
         String query = "INSERT INTO ways_with_pol(source, target, cost_fast, one_way, oneway, x1, y1, x2, y2, source_name, target_name, route_id, trip_head, tan_data, the_geom) " +
-                "VALUES (?, ?, ?, 1, 'YES', ?, ?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?))";
+                "VALUES (?, ?, ?, 1, 'YES', ?, ?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?, 4326))";
 
         try (PreparedStatement stmt = distantCo.getConnect().prepareStatement(query)) {
             stmt.setInt(1, this.getPrevious().getId());  // source
@@ -104,7 +104,7 @@ public class Way {
         String theGeom = "LINESTRING(" + this.getPrevious().getLon() + " " + this.getPrevious().getLat() + "," + this.getCurrent().getLon() + " " + this.getCurrent().getLat() + ")";
 
         String query = "INSERT INTO ways_with_pol(source, target, cost_fast, x1, y1, x2, y2, tan_data, the_geom) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?))";
+                "VALUES (?, ?, ?, ?, ?, ?, ?, true, ST_GeomFromText(?, 4326))";
 
         try (PreparedStatement stmt = distantCo.getConnect().prepareStatement(query)) {
 

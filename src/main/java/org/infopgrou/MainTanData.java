@@ -1,5 +1,6 @@
 package org.infopgrou;
 
+import org.json.JSONException;
 import org.postgresql.util.PSQLException;
 
 import java.io.IOException;
@@ -24,15 +25,37 @@ public class MainTanData {
      * @throws SQLException   problem with SQL statement
      * @throws ParseException parse error for timeDifference
      * @throws IOException    error with the logger
+     * @throws JSONException  can't get url
      */
-    public static void main(String[] args) throws SQLException, ParseException, IOException {
+    public static void main(String[] args) throws SQLException, ParseException, IOException, JSONException {
         String fileSuffix = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         Log myLog = new Log("logs/log_" + fileSuffix + ".txt");
 
         ResourceBundle parameters = ResourceBundle.getBundle("credentials");  // get passwords, usernames, addresses, and database name
-
+        myLog.getLogger().info("Connection to local database");
         ConnectionDB localCo = new ConnectionDB(parameters.getString("pwdLocal"), parameters.getString("userLocal"), parameters.getString("dbNameLocal"), parameters.getString("addressLocal"), myLog);  // local database with TAN data
+        myLog.getLogger().info("Connected to local database");
+
+        // Code to load data from TAN API
+        DataLoader dataLoader = new DataLoader("https://data.nantesmetropole.fr/api/records/1.0/search/?dataset=244400404_tan-arrets-horaires-circuits&q=");
+        System.out.println(dataLoader.getUrl());
+        String zipFilePath = "data/gtfs-tan.zip";
+        String destDir = "data";
+        dataLoader.downloadAndUnzip(zipFilePath, destDir);
+
+        // code to put TAN data into local database
+        Reader rd = new Reader("data", parameters.getString("userLocal"), parameters.getString("pwdLocal"), "jdbc:postgresql://" + parameters.getString("addressLocal") + "/" + parameters.getString("dbNameLocal"));
+        rd.readCalendar();
+        rd.readCalendarDates();
+        rd.readStop();
+        rd.readRoutes();
+        rd.readTrips();
+        rd.readStopTimes();
+
+        // code to put all TAN data from local database to distant MINT database
+        myLog.getLogger().info("Connection to distant database");
         ConnectionDB distantCo = new ConnectionDB(parameters.getString("pwdDistant"), parameters.getString("userDistant"), parameters.getString("dbNameDistant"), parameters.getString("addressDistant"), myLog);  // MINT server database
+        myLog.getLogger().info("Connected to distant database");
 
         cleanData(distantCo, myLog);  // clean the tan data from the MINT database
 
